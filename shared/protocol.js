@@ -14,7 +14,7 @@
     PROBE_MS: 10000, // broadcast probe while not connected
     PROBE_REPLY_MS: 1500, // a unicast probe without a reply by then = nobody there
     DEVICE_STALE_MS: 10000, // found device dropped after this much silence
-    OS: { MAC: 'mac', WIN: 'win', LINUX: 'linux', ANDROID: 'android' },
+    OS: { MAC: 'mac', WIN: 'win', LINUX: 'linux', ANDROID: 'android', IOS: 'ios' },
     // A phone is a full peer in the one session: it connects only when asked (the Mac's phone
     // tile, its own Connect button, an invite) or to resume a session that just dropped, and it
     // replaces the computer. Computers are refused (busy) while it holds the session and for
@@ -360,6 +360,12 @@
 
     opposite(side) {
       return { left: 'right', right: 'left', top: 'bottom', bottom: 'top' }[side];
+    },
+
+    // A phone-class peer: connects when asked, takes the session, and is held through a Wi-Fi blip
+    // (PHONE_GRACE_MS). Android-only things (adb, scrcpy, the full app) still test P.OS.ANDROID.
+    isPhoneOs(os) {
+      return os === 'android' || os === 'ios';
     },
 
     // "Right Option" / "Left Alt" / "Either Command" / "Right Windows key" — the hotkey in words.
