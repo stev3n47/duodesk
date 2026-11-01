@@ -9,16 +9,18 @@ Users resign it themselves with [Signulous](https://www.signulous.com) (year-lon
 [AltStore / SideStore](https://altstore.io) (seven-day refresh, free Apple ID), or
 [Sideloadly](https://sideloadly.io). No App Store build, no TestFlight, no notarized IPA.
 
-Status: **planning**. Nothing in `/ios` yet. This document is the plan.
+Status: **Phases 1 and 2 are in `/ios`** (pairing, remote, clipboard, files, notifications and
+the computer's screen on the device). Phases 3 to 5 are still plan. The "Built so far" section
+says what was checked against the desktop and Android code and what was not.
 
 ## Goals
 
 - Match the Android companion feature-for-feature **where iOS has an API that reaches
   the same outcome**. Everywhere it doesn't, be honest about it in the UI (page present,
   explains why it is empty) rather than pretending the feature exists.
-- Speak the existing wire protocol (`shared/protocol.js`, `PROTOCOL_VERSION: 1`) without
-  the desktop side needing changes except where a feature is iOS-only (phone screen
-  share — see Phone screen).
+- Speak the existing wire protocol (`shared/protocol.js`, `PROTOCOL_VERSION: 1`). The
+  desktops need one small change first: they decide "is this a phone" with
+  `os === 'android'`, so an iPhone must be taught to them (see Desktop changes).
 - Target iOS 16+ (SwiftUI 4, Swift Concurrency, `UIPasteControl`,
   `NSFileProviderReplicatedExtension`, `DataScannerViewController`, iPad extended-display
   scenes). iPhone 11+ and all iPads that run iOS 16.
@@ -107,7 +109,7 @@ cert does not need any iOS-side CA plumbing.
 
 ## Pairing
 
-Exact same flow as `shared/link.js` / `mac/pairing.js`: UDP beacon →
+Exact same flow as the guest side (`windows/link.js`, Android `Link.kt`) and the host's `mac/pairing.js`: UDP beacon →
 `pair.start / pair.nonce / pair.reveal` → both sides compute the six-digit SAS from
 `sha256("macshare-sas-v1" || fp || nw || nm)` → user taps **Codes match** → `pair.ok`
 hands the phone a 32-byte hex token. Phone stores
@@ -130,21 +132,22 @@ reduced from Android, **—** cannot ship.
 
 | Feature | iOS plan | Phase |
 |---|---|---|
-| Pair over Wi-Fi + BLE + USB | ✓ `URLSessionWebSocketTask` + Core Bluetooth + usbmuxd | 1 |
+| Pair over Wi-Fi | ✓ `URLSessionWebSocketTask`, pinned fingerprint | 1 |
+| Link over Bluetooth and USB | ◐ Bluetooth lists nearby computers and reads their info; the GATT byte pipe and the usbmuxd link are not wired up yet | later |
 | QR pair | ✓ `DataScannerViewController` scan, `CIFilter` display | 1 |
 | Overview / sidebar / pages UI | ✓ SwiftUI `NavigationSplitView` matching Aurora look | 1 |
-| Phone-as-remote (trackpad + keyboard) | ✓ UIKit touch + hidden `UITextField`, same `remote.*` messages | 1 |
-| Phone-as-gamepad | ✓ `GCVirtualController` → serialize into `remote.pad` (the PC still owns the virtual HID) | 1 |
-| Clipboard text sync | ✓ `UIPasteboard` + `UIPasteControl`; **foreground only** on phone→PC | 2 |
+| Phone-as-remote (trackpad + keyboard) | ✓ UIKit gestures with the Android page's feel; soft keyboard (`UIKeyInput`) and hardware keyboard (USB usage → `KeyboardEvent.code`); `remote.hello` on open, `remote.release` on close | 1, fixed in 2 |
+| Phone-as-gamepad | ◐ Not built. The on-screen pad would send `remote.pad`; the Android page's `remote.html` is a candidate to reuse in a `WKWebView` | later |
+| Clipboard text sync | ✓ Computer → here at once; here → computer through the system Paste button or, if turned on, when DuoDesk opens (iOS may ask first). One-to-one `clip` carries only `{text}` | 2 |
 | Clipboard image sync | ✓ Same, chunked `clip.image` + `clip.image.part` under 10 MiB | 2 |
-| File send / receive | ✓ `file.offer` / `file.chunk` / `file.end` plus `fx` fast-files over HTTPS PUT | 2 |
-| Share extension (receive files into DuoDesk from any app) | ✓ Share Extension target | 2 |
-| iPad as second screen | ✓ `rtc2.*` offer, `VTDecompressionSession` → `AVSampleBufferDisplayLayer`; `in.*` absolute coords from the viewer | 2 |
+| File send / receive | ✓ The batch protocol over the control channel (`drop:'send'`, `batch`, `rel`, SHA-256). Saved in Files › DuoDesk. No `fx`, no drag/paste/ReZume drops. Folders not yet | 2 |
+| Send from any app | ✓ **Open in DuoDesk** (a document type), not a Share Extension: an extension needs an App Group, and re-signing services rewrite those | 2 |
+| The computer's screen on the device (mirror, or Extend as a second screen) | ✓ The Android app's own `viewer.html`/`viewer.js` in a `WKWebView` with a `window.TD` shim; plain `rtc.*` (a phone is always the guest, `rtc2.*` is a PC's swapped naming); `in.*` back. No native WebRTC dependency | 2 |
 | Phone camera as PC webcam | ✓ `AVCaptureSession` + `VTCompressionSession` H.264/HEVC → `cam.offer` WebRTC. Low-latency H.264 mode. **Foreground / unlocked only** on free sideload; Signulous may grant `multitasking-camera-access` on request for locked-screen capture | 3 |
 | Screen broadcast (phone screen → PC) | ✓ **New feature; needs matching desktop work.** Broadcast Upload Extension target (`RPBroadcastSampleHandler`); extension encodes H.264 and ships `CMSampleBuffer` to the main app over an App Group `CFMessagePort`, main app sends via a new `phone.screen.*` WebRTC path (brand new — scrcpy has no iOS counterpart) | 3 |
 | Files app provider (DuoDesk folder in Files) | ✓ `NSFileProviderReplicatedExtension` target backed by the paired PC's share | 3 |
-| In-app DuoDesk chat | ✓ `chat.*` messages (phase 2 of this doc proposes adding to protocol.js) stored in SwiftData; iOS can send while foreground, receives queued messages on next foreground | 2 |
-| PC → phone notifications (one-way) | ◐ Local `UNNotificationRequest` when the companion is awake. **No remote-push wake** on sideload — if the app is suspended, the notification waits until next foreground. | 2 |
+| In-app DuoDesk chat | — Deferred. `chat.*` does not exist in the protocol; it needs messages, storage and UI on three desktop apps first | later |
+| PC → phone notifications (one-way) | ✓ `notif` → a local notification while DuoDesk runs, with the app icon as an attachment. **No remote-push wake** on a re-signed build | 2 |
 | Phone media / photos browse | ✓ `PHPhotoLibrary` + `PHAsset`, same `media.list / media.thumb / media.view / media.save` messages | 3 |
 | Screenshot auto-copy | ✓ `PHPhotoLibraryChangeObserver` filtering `PHAssetMediaSubtype.photoScreenshot` | 3 |
 | Folder share (phone → PC) | ◐ File Provider Extension exposes **the DuoDesk app's own documents** and anything the user imports via `UIDocumentPicker` security-scoped bookmark; no system-wide folder host | 3 |
@@ -155,40 +158,61 @@ reduced from Android, **—** cannot ship.
 | Quick Settings tile (clip) | ◐ iOS 18 **Controls** framework widget as an approximate equivalent | 4 |
 | App Intents / Shortcuts | ◐ App Intents donations for recent peers; closest to Android's dynamic Sharing Shortcuts | 4 |
 | Device controls (ring, volume) | ◐ Ring: play a loud sound in the companion app. Volume read: unreliable on iOS 17+ (`MPVolumeView` deprecated). Lock / sleep / Wi-Fi / BT / DND toggles: — | 4 |
-| Phone info to PC | ◐ Model, battery, screen size via `UIDevice` + `ProcessInfo` + `UIScreen`. Wallpaper, installed apps: — | 2 |
+| Phone info to PC | — Dropped. Only the Android bridge reads `phone.info`, so sending it would reach nothing | — |
 | SMS / MMS, notification mirror, foreground-app detection | — | — |
 | Mac controls phone's apps (`phone.send`, `phone.in`, `phone.mirror`) | — (no synthetic input / no scrcpy on iOS) | — |
 | Mac draws cursor on phone (`phone.pointer`) | — (no cross-app overlay) | — |
 
 ## Protocol compatibility
 
-Everything in `shared/protocol.js` the companion needs is already defined. There are
-three protocol additions worth proposing in a follow-up PR (iOS can ship without them
-by polyfilling, but desktop support will be cleaner with them):
+### Desktop changes (in this branch)
 
-1. **`phone.screen.*`** — a WebRTC path for streaming an iOS screen broadcast up to a
-   paired PC. Mirrors `cam.offer / cam.answer / cam.ice / cam.state` with `kind:"screen"`.
-   The Android companion uses scrcpy; iOS cannot. Desktop clients need a new "iOS
-   phone screen" viewer path or they can reuse the existing `screen.*` renderer with a
-   new `source:"ios-broadcast"` field.
-2. **`remote.kd / remote.ku` key naming** — the companion sends KeyboardEvent-style
-   `code`, same as the browser remote already does. The old Android `phone.in a:"k"`
-   path with Android keycodes is **not** implemented on iOS.
-3. **`clip.policy {paste: "manual"}`** — explicit flag the companion sets so the desktop
-   does not auto-request clipboard on every change (iOS cannot read the pasteboard in
-   the background without a toast). Desktop side already respects `clip.policy.accept`
-   so this is additive.
+The desktops treat `os === 'android'` as "a phone". An iPhone saying `os: 'ios'` was therefore:
+stored as a Windows PC (the `Object.values(P.OS)` whitelists send an unknown os to `win`),
+refused the phone's takeover and 30-second grace, ignored by the Remote page (every
+`remote.*` handler is gated on it), and sent a full-size screen at the full bitrate.
 
-Everything else — pairing, hello/welcome, clip, file, drag, remote, in, screen, cam,
-audio, chat (new), notif, media, fs, share, rz, dev, pair.sync, wol, hub, net — is
-spoken as-is. Android-only messages (`adb.*`, `smb.*`, `ssh.*`, `sms.*`, `phone.send`,
-`phone.in a:"d"|"m"|"u"|"s"|"k"` applied by Accessibility, `phone.sound`, `phone.pointer`,
-`phone.activeApp`, `call.log`) are **not** sent by iOS; incoming ones get answered with
-`{perm:"none"}` on the matching `*.policy` or `hub.state` so the desktop UI hides them.
+- `shared/protocol.js`: `P.OS.IOS = 'ios'` (fixes every whitelist at once) and
+  `P.isPhoneOs(os)`.
+- `mac|windows|linux` `server.js`, `pairing.js`/`hostpair.js`: takeover, grace, "a phone
+  holds the session".
+- `shared/phone-remote.js`: take `remote.*` from an iOS peer.
+- `mac/stream.js`, `windows|linux/pcscreen.js`: size Extend to the device and cap the bitrate.
+- Android-only paths (adb, scrcpy, `phone-bridge`) still test `P.OS.ANDROID`. Multi-device
+  mode (`*/mesh/*`) is not changed.
 
-The pinned-fingerprint TLS, the hybrid logical clock on `clip`, the `fx` HTTPS fast-files
-path, and the `PHONE_GRACE_MS` 30-second takeover window all port over without protocol
-changes — only iOS-side implementation.
+A computer running a DuoDesk from before this change pairs with the iPhone but files it as a
+Windows PC and ignores the remote; the app says so ("doesn't answer the remote").
+
+### What the first plan got wrong
+
+Checked against the desktop and Android code, not the audit summaries:
+
+- **Features start off on the computer** (clipboard, notifications, files, remote) and are
+  switched on with `pair.sync {feature, dir, on}`. Directions are the sender's: this device's
+  "send" is `dir:'out'`. The computer sends `pair.sync {all}` right after `welcome`.
+- **`welcome` choreography.** Send `clip.policy`, `notif.policy`, `drag.policy`, and
+  `screen.policy {accept:false}`. Without the last the Mac waits 1.5 s, takes the silence for
+  an old viewer that is watching, and starts sharing its screen to nobody.
+- **`hello` has no `fx`.** With it the computer moves files over HTTPS (`shared/fastfile.js`).
+  Android doesn't send it.
+- **One-to-one `clip` is `{text}` only.** Timestamps and `clip.latest` are Multi-device.
+- **`file.offer` must carry `drop`** (`send`), plus `batch`, `rel`, `count`, `bytes`; each file
+  ends with `file.done`, the batch with `files.done`.
+- **The screen viewer is `rtc.*`**, and the page is `viewer.html`/`viewer.js`, not scrcpy.
+- **The Remote page sends `remote.hello` when it opens** and `remote.release` when it closes.
+
+### Still proposed
+
+1. **`phone.screen.*`** — a WebRTC path for streaming an iOS screen broadcast up to a paired
+   computer (Phase 3). The Android app uses scrcpy; iOS cannot. Needs a viewer on all three
+   desktops.
+2. **`chat.*`** — messages, storage and UI on the desktops, then the iOS page.
+
+Android-only messages (`adb.*`, `smb.*`, `ssh.*`, `sms.*`, `phone.send`, `phone.in`,
+`phone.sound`, `phone.pointer`, `phone.activeApp`, `phone.info`, `call.log`) are not sent by
+iOS, and the computer ignores what it doesn't get. The pinned-fingerprint TLS and the 30-second
+phone grace port over unchanged.
 
 ## Project layout
 
@@ -385,6 +409,27 @@ Two changes to the download page, matching the audit:
    through each option. The README's `## Download` section gets a matching
    `**🍏 iOS**<br><sub>16+</sub>` cell and a link to the IPA on the latest release.
 
+## Built so far
+
+What was checked, and how:
+
+| Checked | How |
+|---|---|
+| The iOS app compiles | GitHub Actions on `macos-latest`: `xcodegen`, then an unsigned `xcodebuild archive` |
+| Pairing, `hello`, remote, clipboard, files, notifications and the viewer match the real protocol | Read against `mac/server.js`, `mac/pairing.js`, `shared/phone-remote.js`, `mac/stream.js` and the Android `Link.kt`, `Clip.kt`, `Files.kt`, `Remote.kt`, `viewer.js` |
+| The desktop change breaks nothing | `shared/test/*.js` and the mesh suites give the same results with and without it; `shared/test/phone-os.js` covers the new behaviour |
+
+What has **not** been done: the app has never run on a device, and it has never talked to a
+real computer. No part of pairing, the remote, clipboard, files or the viewer has been seen
+working end to end, and the `WKWebView` viewer in particular (autoplay, the `window.TD` shim,
+WebRTC through WebKit) is reasoned, not tested. Expect fixes in the first real session.
+
+Known gaps in what is built: the Bluetooth link carries no session yet, USB is a listener
+that does nothing, folders can't be sent, the gamepad and chat don't exist, and the
+computers' own UI still files an iPhone under "PC" (for example `mac/control.js` lines 196
+and 269 key the label, the icon and `isPhone` on `os === 'android'`), so its phone-specific
+screens don't appear for it.
+
 ## Milestones
 
 Each phase is a pull request chain that ships a usable companion at the end of it.
@@ -396,7 +441,7 @@ Each phase is a pull request chain that ships a usable companion at the end of i
 - `Pairing.swift`, `Protocol.swift`, `Store.swift`, `Discovery.swift`, `BLECentral.swift`
   (central only; peripheral in phase 3), `USBTether.swift`.
 - QR pair + manual pair + reconnect with pinned fingerprint.
-- Phone-as-remote: trackpad, keyboard, gamepad.
+- Phone-as-remote: trackpad and keyboard (the gamepad is later).
 - `.github/workflows/build-ios.yml` producing an IPA.
 - Website card + sideload page.
 - README iOS cell.
@@ -405,19 +450,18 @@ Each phase is a pull request chain that ships a usable companion at the end of i
 Shippable as a point release (e.g. 2.6.0 if a desktop PR goes with it, or a
 `v2.5.1-ios-preview` tag if iOS wants to move alone).
 
-### Phase 2 — Clipboard + files + chat + viewer
+### Phase 2 — Clipboard + files + notifications + the computer's screen (done)
 
-- `Clipboard.swift` with `UIPasteControl` and `changeCount` polling on
-  `applicationDidBecomeActive`.
-- `Files.swift` with `file.*` over control channel and `fx` fast-files via `URLSession`
-  upload tasks (TLS pinning with session tickets disabled).
-- Share Extension target.
-- `Chat.swift` + SwiftData store + protocol-side proposal to add `chat.*` messages
-  (behind a `pair.sync chat` toggle for backward compatibility).
-- `Viewer.swift` + `WebRTC.swift` — iPad-as-second-screen receives `rtc2.*` offers from a
-  paired Mac/Win/Linux and renders.
-- Local notifications when the app is foreground + a UI explanation of the suspension
-  behavior.
+- `Feature` dispatch: link events are queued and handled in arrival order.
+- `PairSyncFeature`, `ClipboardFeature`, `FilesFeature`, `NotifsFeature`, `RemoteFeature`
+  (rewritten), `ScreenFeature`.
+- Files: the batch protocol both ways; picker, photo picker, and **Open in DuoDesk**.
+- Screen: the Android viewer page in a `WKWebView`; the web folder is bundled from
+  `android/app/src/main/assets/web`, so a change to `viewer.js` there changes both apps and
+  must keep the `window.TD` / `window.tdRecv` interface.
+- Desktop: `P.OS.IOS` and `P.isPhoneOs` (see Protocol compatibility).
+- Deferred: chat, the BLE byte pipe, the gamepad, folders in Files, the Share Extension
+  (replaced by Open in DuoDesk), `phone.info`.
 
 ### Phase 3 — Camera + screen broadcast + file provider + media + BLE peripheral
 
@@ -458,11 +502,7 @@ Before phase 1 opens a PR, these need answers:
    `com.apple.developer.networking.multicast` for UDP discovery. Both are "may grant on
    request" — ask Signulous support directly whether their standard profile includes
    them, or whether we need to ask for a custom profile per release.
-3. **WebRTC library choice.** `GoogleWebRTC` is unmaintained for current Xcode; the
-   community `WebRTC-SDK` xcframework is the usual replacement. Confirm the Mac/Win/Linux
-   WebRTC implementations (`shared/camshare.js`, `shared/camshare-mesh.js`) negotiate
-   codecs the chosen iOS build supports (H.264 baseline is safe; HEVC is iPhone 7+ encode
-   and iPhone 7+ decode but desktop support is partial).
+3. ~~**WebRTC library choice.**~~ Not needed: the viewer runs in a `WKWebView`, which has WebRTC.
 4. **Protocol version bump.** Adding `phone.screen.*` and `chat.*` could ride on
    `PROTOCOL_VERSION: 1` with capability flags in `hello`, or we bump to `v: 2`. Prefer
    capability flags (keeps older desktops working with an iOS phone minus phone-screen /
@@ -480,8 +520,8 @@ Before phase 1 opens a PR, these need answers:
 
 - [`shared/protocol.js`](../shared/protocol.js) — wire protocol constants and the
   `sasCode` function this companion ports verbatim.
-- [`shared/link.js`](../shared/link.js) and [`mac/pairing.js`](../mac/pairing.js) —
-  pairing state machine.
+- [`windows/link.js`](../windows/link.js) (the guest) and [`mac/pairing.js`](../mac/pairing.js)
+  (the host) — the pairing state machine.
 - [`shared/blepipe.js`](../shared/blepipe.js) — BLE service and characteristic UUIDs
   and the GATT framing the companion needs to match.
 - [`android/app/src/main/java/com/twindesk/android/`](../android/app/src/main/java/com/twindesk/android/) — Android

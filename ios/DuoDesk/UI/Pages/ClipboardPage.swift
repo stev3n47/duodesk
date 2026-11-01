@@ -81,8 +81,8 @@ struct ClipboardPage: View {
                 return
             }
             if p.canLoadObject(ofClass: UIImage.self) {
-                _ = p.loadObject(ofClass: UIImage.self) { image, _ in
-                    guard let image else { return }
+                _ = p.loadObject(ofClass: UIImage.self) { object, _ in
+                    guard let image = object as? UIImage else { return }
                     Task { @MainActor in clip.sendImage(image) }
                 }
                 return

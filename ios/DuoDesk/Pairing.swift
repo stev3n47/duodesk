@@ -1,5 +1,5 @@
 // Pairing.swift — SAS pairing against a discovered host.
-// Flow (same as shared/link.js and mac/pairing.js):
+// Flow (same as windows/link.js, android Link.kt and the host's mac/pairing.js):
 //   1. UDP beacon brings us a DiscoveredDevice (host, address, port, fp).
 //   2. Open WSS, pin fp, send pair.start with our commit = sha256(nw bytes).
 //   3. Host answers pair.nonce with its nm.

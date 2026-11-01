@@ -93,11 +93,9 @@ final class Discovery: ObservableObject {
 
     private func receive(on conn: NWConnection, remember: Bool) {
         conn.receiveMessage { [weak self] data, _, _, error in
-            if let data, !data.isEmpty {
-                Task { @MainActor in self?.handle(datagram: data, from: conn) }
-            }
-            if error == nil {
-                self?.receive(on: conn, remember: remember)
+            Task { @MainActor in
+                if let data, !data.isEmpty { self?.handle(datagram: data, from: conn) }
+                if error == nil { self?.receive(on: conn, remember: remember) }
             }
         }
     }
