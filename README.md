@@ -128,6 +128,16 @@ X11 and Wayland · shared folders through Samba · the phone app page by page ·
 
 </td>
 </tr>
+<tr>
+<td width="25%" align="center" valign="top" colspan="4">
+
+**🍏 iOS**<br><sub>16 or later, iPhone and iPad · side-loaded</sub>
+
+<a href="https://github.com/0xCodez/DuoDesk/releases/download/v2.5.0/DuoDesk-2.5.0.ipa"><img src="https://img.shields.io/badge/Companion-.ipa-ff8a3d?style=for-the-badge" alt="iOS companion"></a><br>
+<sub>The IPA is unsigned on purpose — resign it with Signulous, AltStore, Sideloadly or Xcode. See <a href="https://getduodesk.vercel.app/sideload">how to install</a> and the <a href="docs/ios.md">iOS plan</a>.</sub>
+
+</td>
+</tr>
 </table>
 
 <a name="first-launch"></a>

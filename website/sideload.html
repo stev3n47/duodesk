@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DuoDesk iOS — how to install</title>
+<meta name="description" content="Side-load DuoDesk on iPhone and iPad with Signulous, AltStore, Sideloadly or Xcode.">
+<meta name="theme-color" content="#040405">
+<meta name="color-scheme" content="dark">
+<link rel="canonical" href="https://getduodesk.vercel.app/sideload">
+<link rel="icon" type="image/png" sizes="64x64" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="simple">
+
+<header class="pagehead">
+  <a class="back" href="/">← DuoDesk</a>
+  <h1>Install DuoDesk on iPhone or iPad</h1>
+  <p class="lede">The iOS build is side-loaded — the IPA on every GitHub release is unsigned, and
+  you resign it with your own certificate before it will open on your device. Four ways to do that:</p>
+</header>
+
+<main class="prose">
+
+  <section>
+    <h2>1. Signulous <small>(recommended, ~1 year)</small></h2>
+    <p>Paid re-signing service. Upload the IPA from the <a href="https://github.com/0xCodez/DuoDesk/releases">latest release</a>,
+    pay for a certificate, install from the link they send. Camera-in-background and multicast discovery
+    work on their standard profile. You'll see a banner in the app 30 days before the cert expires;
+    re-install from Signulous when that fires.</p>
+    <p><a class="btn" href="https://www.signulous.com">Signulous ↗</a></p>
+  </section>
+
+  <section>
+    <h2>2. AltStore / SideStore <small>(free, 7-day refresh)</small></h2>
+    <p>Install <a href="https://altstore.io">AltServer</a> on a Mac or PC that stays on the same
+    Wi-Fi, add the IPA, install to the phone. The free Apple ID cert expires every seven days;
+    AltServer refreshes it automatically. Some features (push notifications, hotspot, locked-screen
+    camera) are off on this path — see the Settings page in the app for the current state.</p>
+    <p><a class="btn" href="https://altstore.io">AltStore ↗</a> &nbsp;
+       <a class="btn" href="https://sidestore.io">SideStore ↗</a></p>
+  </section>
+
+  <section>
+    <h2>3. Sideloadly <small>(free, 7-day refresh)</small></h2>
+    <p>Windows-friendly alternative. Plug the phone in, drop the IPA, enter your Apple ID. Same
+    reduced-mode caveats as AltStore.</p>
+    <p><a class="btn" href="https://sideloadly.io">Sideloadly ↗</a></p>
+  </section>
+
+  <section>
+    <h2>4. Xcode <small>(contributors, free personal team)</small></h2>
+    <p>Clone <a href="https://github.com/0xCodez/DuoDesk"><code>DuoDesk</code></a>,
+    <code>cd ios</code>, <code>brew install xcodegen &amp;&amp; xcodegen generate</code>, open the
+    generated project, change the team to your Apple ID in Signing &amp; Capabilities, run on your
+    device. Same 7-day expiry as AltStore / Sideloadly.</p>
+  </section>
+
+  <section>
+    <h2>What iOS cannot do</h2>
+    <p>DuoDesk's iOS build matches the Android companion where iOS has an API that reaches the same
+    outcome. A handful of DuoDesk features aren't on iOS and never will be — Apple does not expose
+    SMS/iMessage, other apps' notifications, or synthetic input to any third-party app. The
+    <a href="https://github.com/0xCodez/DuoDesk/blob/main/docs/ios.md#feature-matrix">full feature
+    matrix</a> is in the repo.</p>
+  </section>
+
+</main>
+
+<footer class="simple-foot">
+  <p>DuoDesk is free and open source. <a href="https://github.com/0xCodez/DuoDesk">GitHub</a> ·
+  <a href="/">Home</a></p>
+</footer>
+
+</body>
+</html>

@@ -14,6 +14,7 @@ const PICK = {
   deb: (n) => /^DuoDesk-.*\.deb$/.test(n),
   android: (n) => /^DuoDesk-.*\.apk$/.test(n) && !/-full\.apk$/.test(n),
   'android-full': (n) => /^DuoDesk-.*-full\.apk$/.test(n),
+  ios: (n) => /^DuoDesk-.*\.ipa$/.test(n),
 }
 
 let cache = { at: 0, assets: null };

@@ -1,0 +1,102 @@
+# XcodeGen spec. Run `xcodegen generate` in this directory to produce
+# DuoDesk.xcodeproj, then open it in Xcode or build with `./build-ipa.sh`.
+# The project file is intentionally not committed; this .yml is the source.
+
+name: DuoDesk
+options:
+  bundleIdPrefix: com.twindesk
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: en
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    MARKETING_VERSION: 2.5.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    TARGETED_DEVICE_FAMILY: "1,2"  # iPhone + iPad
+    SUPPORTS_MACCATALYST: NO
+    ENABLE_BITCODE: NO
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGN_IDENTITY: ""
+    CODE_SIGNING_REQUIRED: NO
+    DEVELOPMENT_TEAM: ""
+    SWIFT_STRICT_CONCURRENCY: targeted
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+targets:
+  DuoDesk:
+    type: application
+    platform: iOS
+    sources:
+      - path: DuoDesk
+        excludes:
+          - Resources/Info.plist
+    resources:
+      - path: DuoDesk/Resources/Assets.xcassets
+        optional: true
+    info:
+      path: DuoDesk/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: DuoDesk
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIRequiresFullScreen: false
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        UIBackgroundModes:
+          - bluetooth-central
+          - bluetooth-peripheral
+          - voip
+          - audio
+          - fetch
+          - processing
+        NSLocalNetworkUsageDescription: "DuoDesk talks to your computer on the same Wi-Fi."
+        NSBluetoothAlwaysUsageDescription: "DuoDesk uses Bluetooth to find and connect to your computer."
+        NSBluetoothPeripheralUsageDescription: "DuoDesk uses Bluetooth to let your computer reach your phone."
+        NSCameraUsageDescription: "DuoDesk uses the camera to scan a pairing QR code."
+        NSMicrophoneUsageDescription: "DuoDesk uses the microphone only when you turn on the webcam feature."
+        NSPhotoLibraryUsageDescription: "DuoDesk sends photos you choose to your computer."
+        NSContactsUsageDescription: "DuoDesk reads contacts so your computer can see who is calling."
+        NSBonjourServices:
+          - _duodesk._tcp
+          - _duodesk._udp
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        LSApplicationQueriesSchemes:
+          - tel
+          - sms
+          - mailto
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: com.twindesk.ios.pair
+            CFBundleURLSchemes:
+              - twindesk
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.twindesk.ios
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
+    entitlements:
+      path: DuoDesk/Resources/DuoDesk.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.twindesk.ios.shared
+        com.apple.developer.networking.multicast: true
+        com.apple.developer.networking.wifi-info: true
+        com.apple.developer.networking.HotspotConfiguration: true

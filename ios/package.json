@@ -1,0 +1,6 @@
+{
+  "name": "duodesk-ios",
+  "version": "2.5.0",
+  "private": true,
+  "description": "DuoDesk iOS companion. Phase 1 — pair, remote, viewer. Side-loaded distribution; see README.md."
+}
