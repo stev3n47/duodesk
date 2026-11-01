@@ -37,8 +37,13 @@ jobs:
         with:
           ref: ${{ inputs.ref || (github.event_name == 'workflow_dispatch' && 'main') || github.ref }}
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app
+      - name: Show toolchain
+        run: |
+          echo "Runner Xcodes:"
+          ls /Applications | grep -i Xcode || true
+          echo "Active: $(xcode-select -p)"
+          xcodebuild -version
+          swift --version | head -1
 
       - name: Install XcodeGen
         run: brew install xcodegen
