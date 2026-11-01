@@ -1,0 +1,97 @@
+name: Build Windows (iOS preview)
+
+# Temporary, like the ios-plan trigger in build-ios.yml: delete this file before merging.
+#
+# build-windows.yml builds only a v* tag, and on this fork it isn't registered, so it can't be
+# started by hand. This builds the same installers from the branch whenever the Windows app or
+# the code it shares changes, and keeps them on one rolling prerelease, "windows-ios-preview",
+# so an iPhone running the iOS preview has a DuoDesk on a PC that understands it (the desktop
+# change that treats an iPhone or iPad as a phone is in shared/protocol.js and windows/server.js).
+on:
+  push:
+    branches: ['ios-plan']
+    paths:
+      - '.github/workflows/build-windows-preview.yml'
+      - 'windows/**'
+      - 'windows-helper/**'
+      - 'shared/**'
+  workflow_dispatch:
+
+# Write: the installers go straight onto a release.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Without the ANDROID_KEYSTORE secret and a release that carries the full APK this only
+      # warns: the installer then doesn't offer the full Android build, which an iPhone doesn't need.
+      - uses: ./.github/actions/android-full
+        with:
+          keystore: ${{ secrets.ANDROID_KEYSTORE }}
+
+      # The app's PowerShell scripts (ps.js runs only these): each one parses in Windows PowerShell.
+      - name: Check the PowerShell scripts
+        shell: powershell
+        run: |
+          $bad = 0
+          foreach ($f in Get-ChildItem windows/scripts/*.ps1, windows-helper/calls/*.ps1) {
+            $errs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errs)
+            foreach ($e in $errs) { Write-Output "$($f.Name):$($e.Extent.StartLineNumber): $($e.Message)"; $bad++ }
+          }
+          if ($bad) { exit 1 }
+
+      - name: Install dependencies
+        working-directory: windows
+        run: npm install
+
+      # The helper builds with .NET Framework's csc.exe, which the runner has. One AnyCPU helper
+      # serves both installers. Unsigned: no Authenticode certificate is configured here.
+      - name: Build the installers (x64 and arm64)
+        working-directory: windows
+        run: npm run dist -- x64 arm64
+
+      - name: Upload the installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: duodesk-windows-preview
+          path: windows/dist/*.exe
+
+      # Published only now that the build worked, so the release is never empty. Each green build
+      # replaces it. Its tag doesn't match v*, so no other workflow runs, and a prerelease is never
+      # the "latest" release the website's download buttons use.
+      - name: Publish the preview
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          short=$(git rev-parse --short HEAD)
+          ls -l windows/dist/*.exe
+          {
+            echo "**Unsigned** Windows installers for DuoDesk, built from \`$BRANCH\` at \`$short\`, for use with the iOS preview."
+            echo
+            echo "- It is DuoDesk 2.5.0 plus the change that lets a PC recognise an iPhone or iPad as a phone. A released DuoDesk files an iPhone as a Windows PC and ignores its remote."
+            echo "- \`DuoDesk-Setup-<version>.exe\` is for most PCs (x64); the \`-arm64\` one is for Windows on ARM."
+            echo "- It isn't code-signed, so Windows SmartScreen warns: choose **More info**, then **Run anyway**."
+            echo "- Your settings and pairings are kept in \`%APPDATA%\\MacShare\`, outside the install folder, so installing over a current DuoDesk should keep them. This hasn't been tried."
+            echo "- It was built by CI and has **not** been run on a PC yet."
+            echo "- The iPhone app: https://github.com/$REPO/releases/tag/ios-preview"
+            echo
+            echo "This release is replaced by the next build of \`$BRANCH\` that changes the Windows app."
+          } > notes.md
+          gh release delete windows-ios-preview --cleanup-tag --yes >/dev/null 2>&1 || true
+          gh release create windows-ios-preview windows/dist/*.exe --prerelease --target "$sha" \
+            --title "Windows build for the iOS preview ($BRANCH @ $short)" --notes-file notes.md
