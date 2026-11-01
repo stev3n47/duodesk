@@ -71,6 +71,22 @@ enum P {
         static let FILE_DONE = "file.done"
         static let FILE_CANCEL = "file.cancel"
         static let FILE_PULL = "file.pull"
+        static let FILES_DONE = "files.done"
+        static let DRAG_START = "drag.start"
+        static let DRAG_CANCEL = "drag.cancel"
+        static let DRAG_END = "drag.end"
+        static let DRAG_POLICY = "drag.policy"
+
+        // The computer's screen on this device (mac/stream.js; android Web.kt).
+        static let SCREEN_POLICY = "screen.policy"
+        static let SCREEN_CTL = "screen.ctl"
+        static let SCREEN_STATE = "screen.state"
+        static let STREAM_INFO = "stream.info"
+        static let STREAM_STOP = "stream.stop"
+        static let STREAM_INPUT = "stream.input"
+        static let RTC_OFFER = "rtc.offer"
+        static let RTC_ANSWER = "rtc.answer"
+        static let RTC_ICE = "rtc.ice"
 
         static let NOTIF = "notif"
         static let NOTIF_POLICY = "notif.policy"

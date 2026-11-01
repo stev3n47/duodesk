@@ -37,6 +37,13 @@ targets:
       - path: DuoDesk
         excludes:
           - Resources/Info.plist
+      # The Android app's own viewer page (viewer.html/js/css + fonts), bundled as a folder so
+      # both apps play the computer's screen with the same code. Its window.TD is shimmed in
+      # DuoDesk/Features/Screen.swift.
+      - path: ../android/app/src/main/assets/web
+        name: web
+        type: folder
+        buildPhase: resources
     resources:
       - path: DuoDesk/Resources/Assets.xcassets
         optional: true
@@ -78,6 +85,13 @@ targets:
           - _duodesk._udp
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
+        # "Open in DuoDesk" / Share > DuoDesk for any file: sends it to the connected computer.
+        # (A Share Extension would need an App Group, which re-signing services rewrite.)
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Any file
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.item
         LSApplicationQueriesSchemes:
           - tel
           - sms

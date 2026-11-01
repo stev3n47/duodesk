@@ -13,10 +13,10 @@ import CryptoKit
 protocol PeerLinkDelegate: AnyObject {
     func peerLink(_ link: PeerLink, didConnect welcome: [String: Any])
     func peerLink(_ link: PeerLink, didReceive message: [String: Any])
-    func peerLink(_ link: PeerLink, didCloseWith error: PeerLink.CloseReason)
+    func peerLink(_ link: PeerLink, didCloseWith reason: PeerLink.CloseReason)
 }
 
-final class PeerLink: NSObject {
+final class PeerLink: NSObject, @unchecked Sendable {
     enum State {
         case idle, connecting, open, closing, closed
     }
@@ -24,31 +24,55 @@ final class PeerLink: NSObject {
     enum CloseReason {
         case bye
         case replaced
+        case released
+        case asleep
+        case busy(String)
         case timeout
         case error(String)
         case versionMismatch
         case badToken
         case transport(Error)
-    }
 
-    enum LinkError: Error {
-        case pinningFailed
-        case unexpectedBinary
-        case protocolError(String)
-        case notConnected
+        var text: String {
+            switch self {
+            case .bye: return "The computer disconnected"
+            case .replaced: return "Another device took over"
+            case .released: return "The computer let go of this device"
+            case .asleep: return "The computer went to sleep"
+            case .busy(let s): return s.isEmpty ? "The computer is in use" : s
+            case .timeout: return "Timed out"
+            case .error(let s): return "Error: \(s)"
+            case .versionMismatch: return "Protocol version mismatch"
+            case .badToken: return "Not paired any more: pair again"
+            case .transport(let e): return "Connection lost: \(e.localizedDescription)"
+            }
+        }
     }
 
     weak var delegate: PeerLinkDelegate?
 
-    private(set) var state: State = .idle
+    private let lock = NSLock()
+    private var _state: State = .idle
+    private var _pending = 0
+    private var task: URLSessionWebSocketTask?
+    private var session: URLSession?
+
+    var state: State {
+        lock.lock(); defer { lock.unlock() }
+        return _state
+    }
+
+    /// Bytes handed to the socket that it hasn't taken yet. Senders of big things (files,
+    /// pictures) wait while this is large so pings and input never queue behind them.
+    var pendingBytes: Int {
+        lock.lock(); defer { lock.unlock() }
+        return _pending
+    }
 
     private let host: PairedHost
     private let token: String
     private let selfId: String
     private let selfName: String
-
-    private var task: URLSessionWebSocketTask?
-    private var session: URLSession?
     private let delegateProxy = PinningProxy()
 
     private var pingTimer: Timer?
@@ -64,14 +88,18 @@ final class PeerLink: NSObject {
         delegateProxy.expectedFingerprint = host.fp
     }
 
+    private func setState(_ s: State) {
+        lock.lock(); _state = s; lock.unlock()
+    }
+
     func connect() {
-        guard state == .idle || state == .closed else { return }
-        state = .connecting
+        let st = state
+        guard st == .idle || st == .closed else { return }
+        setState(.connecting)
         let config = URLSessionConfiguration.ephemeral
         config.waitsForConnectivity = false
         config.tlsMinimumSupportedProtocolVersion = .TLSv12
         let session = URLSession(configuration: config, delegate: delegateProxy, delegateQueue: nil)
-        self.session = session
 
         var components = URLComponents()
         components.scheme = "wss"
@@ -79,7 +107,7 @@ final class PeerLink: NSObject {
         components.port = Int(host.port)
         components.path = "/"
         guard let url = components.url else {
-            fail(.error("bad url"))
+            fail(.error("bad address"))
             return
         }
 
@@ -87,36 +115,55 @@ final class PeerLink: NSObject {
         req.timeoutInterval = 10
         let task = session.webSocketTask(with: req)
         task.maximumMessageSize = P.MAX_PAYLOAD
+        lock.lock()
+        self.session = session
         self.task = task
+        lock.unlock()
         task.resume()
 
-        receiveLoop()
+        receiveLoop(task)
         sendHello()
     }
 
+    /// Say goodbye (a phone that leaves on purpose gets no grace to resume) and close.
     func disconnect() {
         guard state != .closed else { return }
-        state = .closing
-        send(["t": P.T.BYE])
-        task?.cancel(with: .goingAway, reason: nil)
-        teardown()
+        setState(.closing)
+        lock.lock(); let task = self.task; lock.unlock()
+        if let task, let data = try? JSONSerialization.data(withJSONObject: ["t": P.T.BYE]),
+           let text = String(data: data, encoding: .utf8) {
+            task.send(.string(text)) { [weak self] _ in self?.teardown() }
+            // If the socket never takes it, close anyway.
+            DispatchQueue.global().asyncAfter(deadline: .now() + 1) { [weak self] in self?.teardown() }
+        } else {
+            teardown()
+        }
     }
 
     // MARK: - Send
 
     @discardableResult
     func send(_ message: [String: Any]) -> Bool {
+        guard let data = try? JSONSerialization.data(withJSONObject: message, options: []),
+              data.count <= P.MAX_PAYLOAD,
+              let text = String(data: data, encoding: .utf8) else { return false }
+        lock.lock()
+        let task = self.task
+        if task != nil { _pending += data.count }
+        lock.unlock()
         guard let task else { return false }
-        guard let data = try? JSONSerialization.data(withJSONObject: message, options: []) else {
-            return false
+        let size = data.count
+        task.send(.string(text)) { [weak self] _ in
+            guard let self else { return }
+            self.lock.lock(); self._pending -= size; self.lock.unlock()
         }
-        guard data.count <= P.MAX_PAYLOAD else { return false }
-        guard let text = String(data: data, encoding: .utf8) else { return false }
-        task.send(.string(text)) { _ in }
         return true
     }
 
     private func sendHello() {
+        // No `fx`: that makes the computer move files over HTTPS (shared/fastfile.js), which
+        // this app doesn't speak. Android doesn't send it either. `takeover`: this device only
+        // connects when its person asked for it.
         let hello: [String: Any] = [
             "t": P.T.HELLO,
             "v": P.PROTOCOL_VERSION,
@@ -124,7 +171,6 @@ final class PeerLink: NSObject {
             "name": selfName,
             "os": P.OS.ios,
             "token": token,
-            "fx": 1,
             "takeover": true,
         ]
         send(hello)
@@ -132,8 +178,8 @@ final class PeerLink: NSObject {
 
     // MARK: - Receive
 
-    private func receiveLoop() {
-        task?.receive { [weak self] result in
+    private func receiveLoop(_ task: URLSessionWebSocketTask) {
+        task.receive { [weak self] result in
             guard let self else { return }
             switch result {
             case .success(let message):
@@ -149,7 +195,7 @@ final class PeerLink: NSObject {
                     break
                 }
                 if self.state != .closed {
-                    self.receiveLoop()
+                    self.receiveLoop(task)
                 }
             case .failure(let error):
                 self.fail(.transport(error))
@@ -168,21 +214,24 @@ final class PeerLink: NSObject {
         }
         switch t {
         case P.T.WELCOME:
-            state = .open
-            startKeepalive()
+            setState(.open)
+            DispatchQueue.main.async { [weak self] in self?.startKeepalive() }
             delegate?.peerLink(self, didConnect: msg)
         case P.T.ERROR:
             let code = (msg["code"] as? String) ?? ""
+            let message = (msg["message"] as? String) ?? ""
             switch code {
             case P.E.VERSION_MISMATCH: fail(.versionMismatch)
             case P.E.BAD_TOKEN:        fail(.badToken)
             case P.E.REPLACED:         fail(.replaced)
-            default:                   fail(.error(code))
+            case P.E.RELEASED:         fail(.released)
+            case P.E.ASLEEP:           fail(.asleep)
+            case P.E.BUSY:             fail(.busy(message))
+            default:                   fail(.error(message.isEmpty ? code : message))
             }
         case P.T.PING:
             send(["t": P.T.PONG, "ts": msg["ts"] ?? Date().timeIntervalSince1970 * 1000])
         case P.T.PONG:
-            // keepalive bookkeeping; lastSeen already touched
             break
         case P.T.BYE:
             fail(.bye)
@@ -191,7 +240,7 @@ final class PeerLink: NSObject {
         }
     }
 
-    // MARK: - Keepalive
+    // MARK: - Keepalive (timers live on the main run loop)
 
     private func startKeepalive() {
         pingTimer?.invalidate()
@@ -210,13 +259,20 @@ final class PeerLink: NSObject {
     // MARK: - Teardown
 
     private func teardown() {
-        pingTimer?.invalidate(); pingTimer = nil
-        silenceTimer?.invalidate(); silenceTimer = nil
+        lock.lock()
+        let task = self.task
+        let session = self.session
+        self.task = nil
+        self.session = nil
+        _state = .closed
+        _pending = 0
+        lock.unlock()
+        DispatchQueue.main.async { [weak self] in
+            self?.pingTimer?.invalidate(); self?.pingTimer = nil
+            self?.silenceTimer?.invalidate(); self?.silenceTimer = nil
+        }
         task?.cancel(with: .normalClosure, reason: nil)
-        task = nil
         session?.invalidateAndCancel()
-        session = nil
-        state = .closed
     }
 
     private func fail(_ reason: CloseReason) {

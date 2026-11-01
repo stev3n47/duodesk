@@ -1,10 +1,13 @@
 // SettingsPage.swift — device identity, signing posture, side-load help links.
 
 import SwiftUI
+import UserNotifications
 
 struct SettingsPage: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var store: Store
+    @EnvironmentObject var sync: PairSyncFeature
+    @EnvironmentObject var notifs: NotifsFeature
     @State private var editingName: String = ""
 
     var body: some View {
@@ -26,6 +29,31 @@ struct SettingsPage: View {
                 }
             }
 
+            Section {
+                Toggle("Show the computer’s notifications here", isOn: Binding(
+                    get: { sync.get("notifs", .incoming) },
+                    set: { on in
+                        if on {
+                            Task {
+                                if await notifs.requestAuthorization() {
+                                    sync.set("notifs", .incoming, true)
+                                    notifs.sendPolicy()
+                                }
+                            }
+                        } else {
+                            sync.set("notifs", .incoming, false)
+                        }
+                    }))
+                if notifs.authorization == .denied {
+                    Label("Notifications are off for DuoDesk in iOS Settings.", systemImage: "bell.slash")
+                        .font(.footnote).foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text("They arrive while DuoDesk is running. iOS doesn’t let an app read other apps’ notifications, so this device’s don’t go to the computer.")
+            }
+
             Section("Signing") {
                 row("Profile", model.posture.profile.rawValue)
                 if let days = model.posture.daysUntilExpiry {
@@ -38,17 +66,20 @@ struct SettingsPage: View {
             }
 
             Section("What this build supports") {
-                supportRow("Pairing (Wi-Fi, BLE, USB)", true)
-                supportRow("Phone as remote", true)
-                supportRow("Wake-on-LAN", true)
-                supportRow("Clipboard", false, note: "Phase 2")
-                supportRow("Files, share sheet", false, note: "Phase 2")
-                supportRow("iPad as second screen", false, note: "Phase 2")
-                supportRow("Camera as PC webcam", false, note: "Phase 3")
-                supportRow("Phone screen → PC", false, note: "Phase 3")
-                supportRow("Files app provider", false, note: "Phase 3")
-                supportRow("Call audio bridge (foreground)", false, note: "Phase 4")
-                supportRow("SMS, notification mirror, mouse into iOS", false,
+                supportRow("Pairing and connecting over Wi-Fi", true)
+                supportRow("Bluetooth and USB links", false, note: "Not yet")
+                supportRow("Remote: touchpad and keyboard", true)
+                supportRow("Clipboard, text and pictures", true)
+                supportRow("Files, both ways; Open in DuoDesk", true)
+                supportRow("Computer’s screen on this device", true)
+                supportRow("Computer’s notifications here", true)
+                supportRow("Gamepad", false, note: "Later")
+                supportRow("Camera as the computer’s webcam", false, note: "Phase 3")
+                supportRow("This screen on the computer", false, note: "Phase 3")
+                supportRow("Files app folder", false, note: "Phase 3")
+                supportRow("Calls (while open)", false, note: "Phase 4")
+                supportRow("Chat", false, note: "Needs the computer apps")
+                supportRow("Texts, other apps’ notifications, controlling this device", false,
                            note: "Not possible on iOS")
             }
 

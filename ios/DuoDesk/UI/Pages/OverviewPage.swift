@@ -22,7 +22,7 @@ struct OverviewPage: View {
                 } else {
                     ForEach(store.hosts) { host in
                         HostRow(host: host,
-                                connected: model.activeHostId == host.id,
+                                connected: model.connectedHost?.id == host.id,
                                 onConnect: { model.connect(to: host) },
                                 onDisconnect: { model.disconnect() },
                                 onForget: { store.forget(hostId: host.id) })

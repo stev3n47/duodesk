@@ -13,6 +13,9 @@ struct RootView: View {
                     row(.overview, "Overview", "house")
                     row(.pairing, "Pairing", "qrcode.viewfinder")
                     row(.remote, "Remote", "cursorarrow.rays")
+                    row(.clipboard, "Clipboard", "doc.on.clipboard")
+                    row(.files, "Files", "folder")
+                    row(.screen, "Screen", "rectangle.on.rectangle")
                     row(.settings, "Settings", "gearshape")
                 }
             }
@@ -23,7 +26,7 @@ struct RootView: View {
                 detail
                     .toolbar {
                         ToolbarItem(placement: .principal) {
-                            StatusPill(text: model.connectionStatus, connected: model.activeHostId != nil)
+                            StatusPill(text: model.connectionStatus, connected: model.isConnected)
                         }
                     }
             }
@@ -41,6 +44,9 @@ struct RootView: View {
         case .overview: OverviewPage()
         case .pairing:  PairingPage()
         case .remote:   RemotePage()
+        case .clipboard: ClipboardPage()
+        case .files:    FilesPage()
+        case .screen:   ScreenPage()
         case .settings: SettingsPage()
         }
     }
