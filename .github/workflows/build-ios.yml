@@ -76,6 +76,21 @@ jobs:
           (cd DerivedData && zip -qry "../dist/DuoDesk-$v.ipa" Payload)
           ls -lh "dist/DuoDesk-$v.ipa"
 
+      # The viewer page is the Android app's web/ folder, bundled by reference from project.yml.
+      # If that path ever stops resolving the build still succeeds and the screen viewer is blank,
+      # so look for the files here.
+      - name: Check the bundle
+        working-directory: ios
+        run: |
+          app="DerivedData/Payload/DuoDesk.app"
+          find "$app" -maxdepth 2 -not -name '*.lproj' | sort | head -60
+          for f in web/viewer.html web/viewer.js web/viewer.css web/fonts/geist-latin-wght-normal.woff2; do
+            test -f "$app/$f" || { echo "::error::$f is missing from the app bundle"; exit 1; }
+          done
+          echo "Document types:"; plutil -extract CFBundleDocumentTypes json -o - "$app/Info.plist"
+          echo; echo "File sharing: $(plutil -extract UIFileSharingEnabled raw -o - "$app/Info.plist")"
+          echo "Min iOS: $(plutil -extract MinimumOSVersion raw -o - "$app/Info.plist")"
+
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
