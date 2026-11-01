@@ -2,8 +2,10 @@ name: Build iOS
 
 on:
   # A pushed v* tag builds and puts the files on that tag's release (made as a prerelease).
+  # The ios-plan branch builds too, during Phase 1 development; remove that line before merging.
   push:
     tags: ['v*']
+    branches: ['ios-plan']
   workflow_dispatch:
     inputs:
       tag:
