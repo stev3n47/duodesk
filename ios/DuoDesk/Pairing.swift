@@ -11,7 +11,7 @@
 import Foundation
 
 @MainActor
-final class Pairing: NSObject, ObservableObject, LinkDelegate {
+final class Pairing: NSObject, ObservableObject, PeerLinkDelegate {
     enum Phase: Equatable {
         case idle
         case connecting
@@ -200,9 +200,9 @@ final class Pairing: NSObject, ObservableObject, LinkDelegate {
         session = nil
     }
 
-    // MARK: - LinkDelegate (unused during pairing; here to satisfy the protocol if we reuse Link later)
+    // MARK: - PeerLinkDelegate (unused during pairing; here to satisfy the protocol if we reuse PeerLink later)
 
-    nonisolated func link(_ link: Link, didConnect welcome: [String: Any]) {}
-    nonisolated func link(_ link: Link, didReceive message: [String: Any]) {}
-    nonisolated func link(_ link: Link, didCloseWith error: Link.CloseReason) {}
+    nonisolated func peerLink(_ link: PeerLink, didConnect welcome: [String: Any]) {}
+    nonisolated func peerLink(_ link: PeerLink, didReceive message: [String: Any]) {}
+    nonisolated func peerLink(_ link: PeerLink, didCloseWith error: PeerLink.CloseReason) {}
 }

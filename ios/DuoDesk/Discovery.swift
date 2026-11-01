@@ -44,7 +44,7 @@ final class Discovery: ObservableObject {
             let listener = try NWListener(using: params, on: NWEndpoint.Port(rawValue: P.DISCOVERY_PORT)!)
             listener.newConnectionHandler = { [weak self] conn in
                 conn.start(queue: .main)
-                self?.receive(on: conn, remember: true)
+                Task { @MainActor in self?.receive(on: conn, remember: true) }
             }
             listener.start(queue: .main)
             self.listener = listener

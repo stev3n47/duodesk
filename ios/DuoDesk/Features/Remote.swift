@@ -74,9 +74,9 @@ enum Remote {
 @MainActor
 final class RemotePointer {
     private var last: CGPoint = .zero
-    private weak var link: Link?
+    private weak var link: PeerLink?
 
-    init(link: Link?) { self.link = link }
+    init(link: PeerLink?) { self.link = link }
 
     func begin() { last = .zero }
 

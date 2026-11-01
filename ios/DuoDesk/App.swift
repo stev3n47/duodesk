@@ -34,7 +34,7 @@ final class AppModel: ObservableObject {
     let ble = BLECentral()
     let usb = USBTether()
 
-    private var activeLink: Link?
+    private var activeLink: PeerLink?
 
     enum Page: Hashable {
         case overview, pairing, remote, settings
@@ -58,7 +58,7 @@ final class AppModel: ObservableObject {
             connectionStatus = "No saved token — pair again"
             return
         }
-        let link = Link(host: host, token: token, selfId: store.selfId, selfName: store.selfName)
+        let link = PeerLink(host: host, token: token, selfId: store.selfId, selfName: store.selfName)
         link.delegate = self
         activeHostId = host.id
         connectionStatus = "Connecting to \(host.name)…"
@@ -73,25 +73,25 @@ final class AppModel: ObservableObject {
         connectionStatus = "Disconnected"
     }
 
-    var currentLink: Link? { activeLink }
+    var currentLink: PeerLink? { activeLink }
 }
 
-extension AppModel: LinkDelegate {
-    nonisolated func link(_ link: Link, didConnect welcome: [String: Any]) {
+extension AppModel: PeerLinkDelegate {
+    nonisolated func peerLink(_ link: PeerLink, didConnect welcome: [String: Any]) {
         let name = (welcome["macName"] as? String) ?? "host"
         Task { @MainActor in
             self.connectionStatus = "Connected to \(name)"
-            // Use the stored link to avoid moving a non-Sendable Link across the Task boundary.
+            // Use the stored link to avoid moving a non-Sendable PeerLink across the Task boundary.
             self.activeLink?.send(Remote.hello())
         }
     }
 
-    nonisolated func link(_ link: Link, didReceive message: [String: Any]) {
+    nonisolated func peerLink(_ link: PeerLink, didReceive message: [String: Any]) {
         // Phase 1 wires only the UI shell; feature modules will attach their own handlers
         // off this hook in later phases.
     }
 
-    nonisolated func link(_ link: Link, didCloseWith reason: Link.CloseReason) {
+    nonisolated func peerLink(_ link: PeerLink, didCloseWith reason: PeerLink.CloseReason) {
         let description: String
         switch reason {
         case .bye: description = "Host disconnected"

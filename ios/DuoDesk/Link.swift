@@ -4,17 +4,19 @@
 //
 // This is the control plane. All media (WebRTC) is set up through it. BLE pipes tunnel
 // an identical WSS session byte-for-byte to 127.0.0.1, so this same class works there too.
+//
+// Named PeerLink so it doesn't collide with SwiftUI.Link in UI code.
 
 import Foundation
 import CryptoKit
 
-protocol LinkDelegate: AnyObject {
-    func link(_ link: Link, didConnect welcome: [String: Any])
-    func link(_ link: Link, didReceive message: [String: Any])
-    func link(_ link: Link, didCloseWith error: Link.CloseReason)
+protocol PeerLinkDelegate: AnyObject {
+    func peerLink(_ link: PeerLink, didConnect welcome: [String: Any])
+    func peerLink(_ link: PeerLink, didReceive message: [String: Any])
+    func peerLink(_ link: PeerLink, didCloseWith error: PeerLink.CloseReason)
 }
 
-final class Link: NSObject {
+final class PeerLink: NSObject {
     enum State {
         case idle, connecting, open, closing, closed
     }
@@ -36,7 +38,7 @@ final class Link: NSObject {
         case notConnected
     }
 
-    weak var delegate: LinkDelegate?
+    weak var delegate: PeerLinkDelegate?
 
     private(set) var state: State = .idle
 
@@ -168,7 +170,7 @@ final class Link: NSObject {
         case P.T.WELCOME:
             state = .open
             startKeepalive()
-            delegate?.link(self, didConnect: msg)
+            delegate?.peerLink(self, didConnect: msg)
         case P.T.ERROR:
             let code = (msg["code"] as? String) ?? ""
             switch code {
@@ -185,7 +187,7 @@ final class Link: NSObject {
         case P.T.BYE:
             fail(.bye)
         default:
-            delegate?.link(self, didReceive: msg)
+            delegate?.peerLink(self, didReceive: msg)
         }
     }
 
@@ -220,7 +222,7 @@ final class Link: NSObject {
     private func fail(_ reason: CloseReason) {
         guard state != .closed else { return }
         teardown()
-        delegate?.link(self, didCloseWith: reason)
+        delegate?.peerLink(self, didCloseWith: reason)
     }
 }
 

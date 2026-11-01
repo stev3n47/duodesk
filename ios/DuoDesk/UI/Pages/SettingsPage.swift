@@ -8,7 +8,9 @@ struct SettingsPage: View {
     @State private var editingName: String = ""
 
     var body: some View {
-        Form {
+        // `List` instead of `Form` — Xcode 26's `Form` has an ambiguous overload with
+        // `FormStyleConfiguration` that trips the trailing-closure resolver on iOS 16.
+        List {
             Section("This device") {
                 TextField("Device name", text: $editingName)
                     .textContentType(.name)

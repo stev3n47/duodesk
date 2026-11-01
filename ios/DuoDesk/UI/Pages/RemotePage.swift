@@ -35,7 +35,7 @@ private struct EmptyRemoteView: View {
 }
 
 private struct RemoteSurface: View {
-    let link: Link?
+    let link: PeerLink?
     @StateObject private var pointer = RemotePointerHolder()
     @FocusState private var kbFocus: Bool
     @State private var kbText: String = ""
@@ -117,5 +117,5 @@ private struct RemoteSurface: View {
 @MainActor
 final class RemotePointerHolder: ObservableObject {
     var inner: RemotePointer?
-    func rebind(link: Link?) { inner = RemotePointer(link: link) }
+    func rebind(link: PeerLink?) { inner = RemotePointer(link: link) }
 }
