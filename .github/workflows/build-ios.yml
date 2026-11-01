@@ -108,3 +108,33 @@ jobs:
         run: |
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" ${DRAFT:+--draft} --prerelease --target "$(git rev-parse HEAD)" --title "$TAG" --notes "" || true
           gh release upload "$TAG" ios/dist/DuoDesk-*.ipa --clobber
+
+      # A branch build (the ios-plan trigger above) becomes one rolling prerelease, "ios-preview",
+      # so the IPA can be downloaded from the Releases page, on a phone too, without opening the
+      # Actions run. Each green build replaces it. Its tag doesn't match v*, so no other workflow
+      # runs, and a prerelease is never the "latest" release the website's download buttons use.
+      - name: Publish the branch preview
+        if: github.event_name == 'push' && github.ref_type == 'branch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          short=$(git rev-parse --short HEAD)
+          file="ios/dist/DuoDesk-${VERSION}-${short}.ipa"
+          cp "ios/dist/DuoDesk-${VERSION}.ipa" "$file"
+          {
+            echo "An **unsigned** build of the DuoDesk iPhone and iPad app, from \`$BRANCH\` at \`$short\`."
+            echo
+            echo "- Re-sign it before installing: Signulous, AltStore / SideStore or Sideloadly. See https://github.com/$REPO/blob/$BRANCH/ios/README.md"
+            echo "- iOS 16 or later. On iOS 16+ turn on Developer Mode (Settings > Privacy & Security) for a side-loaded app."
+            echo "- It compiles in CI. It has **not** been run on a device or against a real computer yet, so expect bugs."
+            echo "- The computer needs a DuoDesk with iOS support (the desktop change on this branch). An older one files the iPhone as a Windows PC and ignores the remote."
+            echo
+            echo "This release is replaced by the next build of \`$BRANCH\`."
+          } > notes.md
+          gh release delete ios-preview --cleanup-tag --yes >/dev/null 2>&1 || true
+          gh release create ios-preview "$file" --prerelease --target "$sha" \
+            --title "iOS preview ($BRANCH @ $short)" --notes-file notes.md
