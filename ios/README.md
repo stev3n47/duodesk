@@ -9,7 +9,11 @@ has not yet been run on a device or against a real computer. See
 [`../docs/ios.md`](../docs/ios.md) for the plan, what was checked, and the known gaps.
 
 **The computer needs a DuoDesk with iOS support** (`P.OS.IOS`, in this branch). An older
-one pairs with the iPhone but files it as a Windows PC and ignores the remote.
+one pairs with the iPhone but files it as a Windows PC and ignores the remote. Until there is a
+release that has it, CI builds the unsigned Windows installers from this branch:
+[`windows-ios-preview`](https://github.com/stev3n47/duodesk/releases/tag/windows-ios-preview);
+the iPhone build is [`ios-preview`](https://github.com/stev3n47/duodesk/releases/tag/ios-preview).
+On a Mac or Linux box, run the app from this branch (`npm start` in `mac/` or `linux/`).
 
 ## Install (users)
 

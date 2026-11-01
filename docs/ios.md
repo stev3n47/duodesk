@@ -424,6 +424,12 @@ real computer. No part of pairing, the remote, clipboard, files or the viewer ha
 working end to end, and the `WKWebView` viewer in particular (autoplay, the `window.TD` shim,
 WebRTC through WebKit) is reasoned, not tested. Expect fixes in the first real session.
 
+Temporary pieces to remove before merging to `main`: the `branches: ['ios-plan']` trigger and
+the "Publish the branch preview" step in `build-ios.yml`, and all of `build-windows-preview.yml`
+(it exists because the upstream `build-windows.yml` isn't registered on this fork). The Windows
+installers on the `windows-ios-preview` release are unsigned and have not been run on a PC; the
+x64 one was downloaded and checked to be an intact, unsigned Windows executable.
+
 Known gaps in what is built: the Bluetooth link carries no session yet, USB is a listener
 that does nothing, folders can't be sent, the gamepad and chat don't exist, and the
 computers' own UI still files an iPhone under "PC" (for example `mac/control.js` lines 196
